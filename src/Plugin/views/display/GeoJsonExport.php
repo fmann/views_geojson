@@ -306,7 +306,7 @@ class GeoJsonExport extends PathPluginBase {
     /** @var \Drupal\Core\Render\RendererInterface $renderer */
     $renderer = \Drupal::service('renderer');
 
-    $output = (string) $renderer->renderRoot($build);
+    $output = (string) $renderer->render($build);
 
     if (empty($output)) {
       //throw new NotFoundHttpException();

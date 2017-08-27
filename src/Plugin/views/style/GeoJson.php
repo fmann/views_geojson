@@ -86,6 +86,7 @@ class GeoJson extends StylePluginBase {
         'latitude' => array('default' => 0),
         'longitude' => array('default' => 0),
         'geofield' => array('default' => 0),
+        'geolocation' => array('default' => 0),
         'wkt' => array('default' => 0),
         'name_field' => array('default' => 0),
         'description_field' => array('default' => 0),
@@ -132,6 +133,7 @@ class GeoJson extends StylePluginBase {
     $data_source_options = array(
       'latlon' => t('Other: Lat/Lon Point'),
       'geofield' => t('Geofield'),
+      'geolocation' => t('Geolocation'),
       'wkt' => t('WKT'),
     );
 
@@ -199,6 +201,27 @@ class GeoJson extends StylePluginBase {
         '#states' => array(
           'visible' => array(
             ':input[name="style_options[data_source][value]"]' => array('value' => 'geofield'),
+          ),
+        ),
+      );
+
+      // Get Geofield-type fields.
+      $geolocation_fields = array();
+      foreach ($fields as $field_id => $field) {
+        // @todo - need to limit to just geolocation fields.
+        $geolocation_fields[$field_id] = $field;
+      }
+
+      // Geolocation.
+      $form['data_source']['geolocation'] = array(
+        '#type' => 'select',
+        '#title' => t('Geolocation'),
+        '#description' => t("Choose a Geolocation field. Any formatter will do; we'll access Geolocation's underlying data storage."),
+        '#options' => $geolocation_fields,
+        '#default_value' => $this->options['data_source']['geolocation'],
+        '#states' => array(
+          'visible' => array(
+            ':input[name="style_options[data_source][value]"]' => array('value' => 'geolocation'),
           ),
         ),
       );
@@ -392,6 +415,19 @@ class GeoJson extends StylePluginBase {
         }
         break;
 
+      case 'geolocation':
+        $geo_items = $this->view->field[$data_source['geolocation']]->getItems($row);
+        if (!empty($geo_items[0]['raw'])) {
+          $raw_geo_item = $geo_items[0]['raw'];
+          $wkt = "POINT({$raw_geo_item->lng} {$raw_geo_item->lat})";
+          $geometry = \geoPHP::load($wkt, 'wkt');
+          if (is_object($geometry)) {
+            $feature['geometry'] = Json::decode($geometry->out('json'));
+          }
+        }
+        break;
+
+
       case 'wkt':
         $wkt = (string) $this->view->field[$data_source['wkt']]->advancedRender($row);
         if (!empty($wkt)) {
@@ -404,7 +440,7 @@ class GeoJson extends StylePluginBase {
     }
 
     // Only add features with geometry data.
-    if (!$feature['geometry']) {
+    if (empty($feature['geometry'])) {
       return NULL;
     }
 
@@ -497,6 +533,10 @@ class GeoJson extends StylePluginBase {
 
       case 'geofield':
         $excluded_fields[] = $data_source['geofield'];
+        break;
+
+      case 'geolocation':
+        $excluded_fields[] = $data_source['geolocation'];
         break;
 
       case 'wkt':
